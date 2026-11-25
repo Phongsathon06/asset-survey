@@ -390,9 +390,16 @@ assetTableBody.addEventListener("click", async (e) => {
   }
 });
 
-// Save Modal Form
+// Save Modal Form (ป้องกันการกดซ้ำ และไม่ push ซ้อนกับ Real-time snapshot)
+let isSavingAsset = false;
+const btnSaveAsset = document.getElementById("btnSaveAsset");
+
 assetForm.addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (isSavingAsset) return;
+  isSavingAsset = true;
+  if (btnSaveAsset) btnSaveAsset.disabled = true;
+
   const editId = document.getElementById("editDocId").value;
   const statusVal = document.getElementById("assetStatus").value;
 
@@ -409,18 +416,27 @@ assetForm.addEventListener("submit", async (e) => {
   try {
     if (editId) {
       const updated = await updateAsset(editId, payload);
-      allAssets = allAssets.map((item) => (item.id === editId ? { ...item, ...updated } : item));
+      if (String(editId).startsWith("local_")) {
+        allAssets = allAssets.map((item) => (item.id === editId ? { ...item, ...updated } : item));
+        updateStats(allAssets);
+        renderTable();
+      }
       showToast("อัปเดตข้อมูลสำเร็จ");
     } else {
       const created = await createAsset(payload);
-      allAssets.push(created);
+      if (String(created.id).startsWith("local_")) {
+        allAssets.push(created);
+        updateStats(allAssets);
+        renderTable();
+      }
       showToast("เพิ่มรายการใหม่สำเร็จ");
     }
-    updateStats(allAssets);
-      renderTable();
     closeModal();
   } catch (err) {
     alert("บันทึกไม่สำเร็จ: " + err.message);
+  } finally {
+    isSavingAsset = false;
+    if (btnSaveAsset) btnSaveAsset.disabled = false;
   }
 });
 
